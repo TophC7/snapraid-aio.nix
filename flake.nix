@@ -159,9 +159,10 @@
             };
 
             schedule = mkOption {
-              type = types.str;
-              default = "daily";
-              description = "Systemd calendar expression for when to run snapraid-aio";
+              type = types.nullOr types.str;
+              default = null;
+              example = "daily";
+              description = "Systemd calendar expression for when to run snapraid-aio. If null, timer won't be enabled.";
             };
           };
 
@@ -180,71 +181,12 @@
               };
             };
 
-            systemd.timers.snapraid-aio = {
+            systemd.timers.snapraid-aio = mkIf (cfg.schedule != null) {
               description = "Run snapraid-aio on schedule";
               wantedBy = [ "timers.target" ];
               timerConfig = {
                 OnCalendar = cfg.schedule;
                 Persistent = true;
-              };
-            };
-          };
-        };
-
-      # Home-manager module
-      homeManagerModules.default =
-        {
-          config,
-          lib,
-          pkgs,
-          ...
-        }:
-        with lib;
-        let
-          cfg = config.services.snapraid-aio;
-        in
-        {
-          options.services.snapraid-aio = {
-            enable = mkEnableOption "snapraid-aio script";
-
-            configFile = mkOption {
-              type = types.nullOr types.path;
-              default = null;
-              description = "Path to custom snapraid-aio configuration file";
-            };
-          };
-
-          config = mkIf cfg.enable {
-            home.packages = [ self.packages.${pkgs.system}.default ];
-
-            # For home-manager, we'll add a systemd user service instead
-            systemd.user.services.snapraid-aio = {
-              Unit = {
-                Description = "SnapRAID maintenance with snapraid-aio";
-              };
-
-              Service = {
-                Type = "oneshot";
-                ExecStart =
-                  if cfg.configFile != null then
-                    "${self.packages.${pkgs.system}.default}/bin/snapraid-aio ${cfg.configFile}"
-                  else
-                    "${self.packages.${pkgs.system}.default}/bin/snapraid-aio";
-              };
-            };
-
-            systemd.user.timers.snapraid-aio = {
-              Unit = {
-                Description = "Run snapraid-aio daily";
-              };
-
-              Timer = {
-                OnCalendar = "daily";
-                Persistent = true;
-              };
-
-              Install = {
-                WantedBy = [ "timers.target" ];
               };
             };
           };
